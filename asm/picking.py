@@ -91,8 +91,10 @@ class Picking(API):
             }
         xml = tmpl.generate(**vals).render()
         result = self.connect(xml)
-        dom = parseString(result)
+        if not result:
+            return reference, label, 'timed out'
 
+        dom = parseString(result)
         Envio = dom.getElementsByTagName('Envio')
 
         Errores = Envio[0].getElementsByTagName('Errores')
@@ -128,12 +130,15 @@ class Picking(API):
             }
         xml = tmpl.generate(**vals).render()
         result = self.connect(xml)
+        if not result:
+            return
+
         dom = parseString(result)
 
         EtiquetaEnvioResponse = dom.getElementsByTagName('EtiquetaEnvioResponse')
         EtiquetaEnvioResult = EtiquetaEnvioResponse[0].getElementsByTagName('EtiquetaEnvioResult')
         base64Binary = EtiquetaEnvioResult[0].getElementsByTagName('base64Binary')
-        
+
         label = base64Binary[0].firstChild.data
 
         return label

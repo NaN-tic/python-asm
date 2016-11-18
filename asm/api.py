@@ -3,6 +3,7 @@
 from asm.utils import asm_url
 from xml.dom.minidom import parseString
 import urllib2
+import socket
 import os
 import genshi
 import genshi.template
@@ -20,9 +21,10 @@ class API(object):
     __slots__ = (
         'url',
         'username',
+        'timeout',
     )
 
-    def __init__(self, username, debug=False):
+    def __init__(self, username, timeout=None, debug=False):
         """
         This is the Base API class which other APIs have to subclass. By
         default the inherited classes also get the properties of this
@@ -36,9 +38,11 @@ class API(object):
                 return asm_api.test_connection()
 
         :param username: ASM API username
+        :param timeout: int number of seconds to lost connection.
         """
         self.url = asm_url(debug)
         self.username = username
+        self.timeout = timeout
 
     def __enter__(self):
         return self
@@ -51,7 +55,7 @@ class API(object):
         Connect to the Webservices and return XML data from ASM
 
         :param xml: XML data.
-        
+
         Return XML object
         """
         headers = {
@@ -60,8 +64,13 @@ class API(object):
             'Content-Length': len(xml),
             }
         request = urllib2.Request(self.url, xml, headers)
-        response = urllib2.urlopen(request)
-        return response.read()
+        try:
+            response = urllib2.urlopen(request, timeout=self.timeout)
+            return response.read()
+        except socket.timeout as err:
+            return
+        except socket.error as err:
+            return
 
     def test_connection(self):
         """
@@ -75,8 +84,10 @@ class API(object):
             }
         xml = tmpl.generate(**vals).render()
         result = self.connect(xml)
-        dom = parseString(result)
+        if not result:
+            return 'Error connection to ASM'
 
+        dom = parseString(result)
         Envio = dom.getElementsByTagName('Envio')
 
         if not Envio:
